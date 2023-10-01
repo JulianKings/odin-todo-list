@@ -1,0 +1,23 @@
+{
+  "name": "odin-todo-list",
+  "version": "0.0.1",
+  "description": "\"ToDo\" list app made with JavaScript as part of The Odin Project lessons.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "webpack serve --open",
+    "build": "webpack",
+    "publish_dist": "git subtree push --prefix dist origin gh-pages"
+  },
+  "keywords": [],
+  "author": "Julian",
+  "license": "GPL-3.0-or-later",
+  "devDependencies": {
+    "css-loader": "^6.8.1",
+    "css-minimizer-webpack-plugin": "^5.0.1",
+    "mini-css-extract-plugin": "^2.7.6",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  }
+}
