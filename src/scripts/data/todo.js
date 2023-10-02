@@ -1,5 +1,5 @@
 class ToDo {
-    constructor(id, title, description, dueDate, priority, favorite, completed)
+    constructor(id, title, description, dueDate, priority, favorite, completed, projectId)
     {
         this.id = id;
         this.title = title;
@@ -8,6 +8,7 @@ class ToDo {
         this.priority = priority;
         this.favorite = favorite;
         this.completed = completed;
+        this.projectId = projectId;
     }
 }
 

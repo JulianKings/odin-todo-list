@@ -10,6 +10,18 @@ const appendNewProject = (name) => {
     _projects.push(proj);
 }
 
+const deleteProject = (id) => {
+    let projectIndex = _projects.findIndex((project) => {
+        return (project.id === id);
+    });
+
+    if(projectIndex > -1)
+    {
+        _projects.splice(projectIndex, 1);
+    }
+
+}
+
 const getProject = (id) => {
     let projIndex = _projects.findIndex((project) => {
         return (project.id === id);
@@ -24,4 +36,4 @@ const getProject = (id) => {
 
 }
 
-export { getProjects, appendNewProject, getProject }
+export { getProjects, appendNewProject, getProject, deleteProject }
