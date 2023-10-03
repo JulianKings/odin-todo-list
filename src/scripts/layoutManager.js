@@ -1,8 +1,8 @@
 // Import methods
-import { printToDoTable } from './todoLayout';
-import { addListeners } from './todoLayout';
-import { getProjects, deleteProject } from './data/projectManager';
-import { alternateToDoCompleted, alternateToDoFavorite, deleteToDo } from './data/todoManager';
+import { printToDoTable, addListeners, appendToDo as loadToDo } from './todoLayout';
+import { getProjects, deleteProject, appendNewProject, getProject } from './data/projectManager';
+import { appendNewToDo, alternateToDoCompleted, alternateToDoFavorite, deleteToDo, getToDo } from './data/todoManager';
+import { updateToDo, removeToDo, appendToDo, updateProject, removeProject, appendProject } from './data/dataManager';
 
 // Import images
 import MenuImage from '../images/menu.svg';
@@ -15,11 +15,13 @@ import StarGoldIcon from "../images/star-gold.svg";
 import CircleIcon from "../images/circle.svg";
 import CheckCircleIcon from "../images/check-circle-black.svg";
 import CheckGreenIcon from "../images/check-circle.svg";
+import AddIcon from "../images/plus-circle-black.svg";
 
 // Declare variables
 let sidebarObject = null;
 let sidebarBackground = null;
 let currentlySelected = "linkHome";
+let dialogObject = null;
 
 const printBasicLayout = () => {
     let headerMenuImage = document.querySelector(".menu-image-holder");
@@ -44,45 +46,46 @@ const appendContent = (content) => {
     mainContentBox.classList.add("main-content");
     
     // handle each layout
+    printToDoTable(mainContentBox, _getLinkType(content));
+    addListeners(_clickHandler, _mouseInHandler, _mouseOutHandler);
+    
+    contentBox.appendChild(mainContentBox);
+
+}
+
+const _getLinkType = (content) => {
     if(content === "linkHome")
     {
-        printToDoTable(mainContentBox, "home");
-        addListeners(_clickHandler, _mouseInHandler, _mouseOutHandler);
+        return "home";
     }
 
     if(content === "linkWeek")
     {
-        printToDoTable(mainContentBox, "week");
-        addListeners(_clickHandler, _mouseInHandler, _mouseOutHandler);
+        return "week";
     }
 
     if(content === "linkToday")
     {
-        printToDoTable(mainContentBox, "today");
-        addListeners(_clickHandler, _mouseInHandler, _mouseOutHandler);
+        return "today";
     }
 
     if(content === "linkFavorites")
     {
-        printToDoTable(mainContentBox, "favorite");
-        addListeners(_clickHandler, _mouseInHandler, _mouseOutHandler);
+        return "favorite";
     }
 
     if(content === "linkCompleted")
     {
-        printToDoTable(mainContentBox, "completed");
-        addListeners(_clickHandler, _mouseInHandler, _mouseOutHandler);
+        return "completed";
     }
 
     if(content.startsWith("linkProject-"))
     {
         let projectId = content.split("-")[1];
-        printToDoTable(mainContentBox, "project-" + projectId);
-        addListeners(_clickHandler, _mouseInHandler, _mouseOutHandler);
+        return "project-" + projectId;
     }
 
-    contentBox.appendChild(mainContentBox);
-
+    return "unknown";
 }
 
 const _mouseInHandler = (event) => {
@@ -126,7 +129,6 @@ const _mouseOutHandler = (event) => {
 }
 
 const _clickHandler = (event) => {
-    console.log(event.target.id);
     // id selectors
     if(event.target.id === "linkHome" || event.target.id === "linkToday" ||
     event.target.id === "linkWeek" || event.target.id == "linkFavorites" ||
@@ -142,6 +144,7 @@ const _clickHandler = (event) => {
 
     if(event.target.id.startsWith("check-todo-"))
     {
+        event.stopPropagation();
         let todoID = +(event.target.id.split("-")[2]);
         alternateToDoCompleted(todoID);
         if(event.target.getAttribute("data-status") !== null && event.target.getAttribute("data-status") !== "check")
@@ -152,10 +155,13 @@ const _clickHandler = (event) => {
             event.target.setAttribute("data-status", "none");
             event.target.src = CircleIcon;
         }
+
+        updateToDo(getToDo(todoID));
     }
 
     if(event.target.id.startsWith("fav-todo-"))
     {
+        event.stopPropagation();
         let todoID = +(event.target.id.split("-")[2]);
         alternateToDoFavorite(todoID);
         if(event.target.getAttribute("data-status") !== null && event.target.getAttribute("data-status") !== "check")
@@ -166,28 +172,340 @@ const _clickHandler = (event) => {
             event.target.setAttribute("data-status", "none");
             event.target.src = StarIcon;
         }
+
+        updateToDo(getToDo(todoID));
     }
 
     if(event.target.id.startsWith("delete-todo-"))
     {
+        event.stopPropagation();
         let todoID = +(event.target.id.split("-")[2]);
         let rowComponent = document.querySelector(`tr[data-id="${todoID}"]`);
         if(rowComponent !== null)
         {
             rowComponent.remove();
         }
+        removeToDo(getToDo(todoID));        
         deleteToDo(todoID);        
     }
 
     if(event.target.id.startsWith("delete-project-"))
     {
+        event.stopPropagation();
         let projectID = +(event.target.id.split("-")[2]);
         let projectComponent = document.querySelector(`.projectItem[data-id="${projectID}"]`);
         if(projectComponent !== null)
         {
             projectComponent.remove();
         }
+        removeProject(getProject(projectID));
         deleteProject(projectID);
+
+        let projectCaption = document.querySelector(".project-heading");
+        if(projectCaption !== null)
+        {
+            projectCaption.textContent = `My Projects (${getProjects().length})`;
+        }
+    }
+
+    if(event.target.id === "add-project" || event.target.id === "add-todo" ||
+    event.target.id.startsWith("info-todo-") || event.target.id.startsWith("edit-todo-") ||
+    event.target.id.startsWith("edit-project-"))
+    {
+        _createDialog(event.target.id);
+    }
+
+    if(event.target.id === "dialog-main" || event.target.id === "todo-cancel" || event.target.id === "project-cancel")
+    {
+        event.stopPropagation();
+        if(dialogObject !== null)
+        {
+            dialogObject.close();
+            dialogObject.remove();
+
+            dialogObject = null;
+            return;
+        }
+    }
+
+    if(event.target.id === "todo-send")
+    {
+        if(dialogObject !== null)
+        {
+            event.stopPropagation();
+            let todoName = document.querySelector('#todoName');
+            if(todoName !== null)
+            {
+                if(todoName.classList.contains("error"))
+                {
+                    todoName.classList.remove("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "";
+                    }
+                }
+
+                if(todoName.value == '' || todoName.value.length === 0)
+                {
+                    // error
+                    todoName.classList.add("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "Please input something in the title.";
+                    }
+                } else {
+                    // todoName, todoDescription, todoDate, todoPriority, todoProject
+                    let todoDescription = document.querySelector("#todoDescription");
+                    let todoDate = document.querySelector("#todoDate");
+                    let todoPriority = document.querySelector("#todoPriority");
+                    let todoProject = document.querySelector("#todoProject");
+
+                    let dueDate = "";
+                    if(todoDate.value.length > 0)
+                    {
+                        let dateSplit = todoDate.value.split("-");
+                        dueDate = `${dateSplit[2]}/${dateSplit[1]}/${dateSplit[0]}`;
+                    } else {
+                        let date = new Date();
+                        dueDate = `${date.getDate()}/${(date.getMonth()+1)}/${date.getFullYear()}`;
+                    }
+                    let newTodo = appendNewToDo(todoName.value, todoDescription.value, dueDate, todoPriority.value, todoProject.value);
+                    appendToDo(newTodo);
+                    loadToDo(_getLinkType(currentlySelected), document.querySelector("tbody"), newTodo);
+
+                    if(dialogObject !== null)
+                    {
+                        dialogObject.close();
+                        dialogObject.remove();
+
+                        dialogObject = null;
+                        return;
+                    }
+
+                }
+            }
+        }
+    }
+
+    if(event.target.id.startsWith("todo-save-"))
+    {
+        let todoId = +(event.target.id.split("-")[2]);
+        let editTodo = getToDo(todoId);
+        if(dialogObject !== null && editTodo !== null)
+        {
+            event.stopPropagation();
+            let todoName = document.querySelector('#todoName');
+            if(todoName !== null)
+            {
+                if(todoName.classList.contains("error"))
+                {
+                    todoName.classList.remove("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "";
+                    }
+                }
+
+                if(todoName.value == '' || todoName.value.length === 0)
+                {
+                    // error
+                    todoName.classList.add("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "Please input something in the title.";
+                    }
+                } else {
+                    if(todoName.value !== editTodo.title)
+                    {
+                        editTodo.title = todoName.value;
+                        let editValue = document.querySelector(`tr[data-id="${todoId}"] td.nameColumn`);
+                        if(editValue !== null)
+                        {
+                            editValue.textContent = editTodo.title;
+                        }  
+                    }
+
+                    let todoDescription = document.querySelector("#todoDescription");
+
+                    if(todoDescription.value !== editTodo.description)
+                    {
+                        editTodo.description = todoDescription.value;                        
+                    }
+
+                    let todoPriority = document.querySelector("#todoPriority");
+                    
+                    if(todoPriority.value !== editTodo.priority)
+                    {
+                        editTodo.priority = todoPriority.value;    
+                        let editValue = document.querySelector(`tr[data-id="${todoId}"] td.priorityColumn`);
+                        if(editValue !== null)
+                        {
+                            editValue.innerHTML = "";
+                            let prio = document.createElement("div");
+                            prio.classList.add(editTodo.priority.toLowerCase());
+                            prio.textContent = editTodo.priority;
+                            editValue.appendChild(prio);
+                        }                                            
+                    }
+
+                    let todoProject = document.querySelector("#todoProject");
+
+                    if(todoProject.value !== editTodo.projectId)
+                    {
+                        editTodo.projectId = todoProject.value;                        
+                    }
+
+                    let todoDate = document.querySelector("#todoDate");
+                    
+                    let dDate = "";
+                    if(todoDate.value.length > 0)
+                    {
+                        let dateSplit = todoDate.value.split("-");
+                        dDate = `${dateSplit[2]}/${dateSplit[1]}/${dateSplit[0]}`;
+                    } else {
+                        let date = new Date();
+                        dDate = `${date.getDate()}/${(date.getMonth()+1)}/${date.getFullYear()}`;
+                    }
+
+                    if(editTodo.dueDate !== dDate)
+                    {
+                        editTodo.dueDate = dDate;
+                        let editValue = document.querySelector(`tr[data-id="${todoId}"] td.dateColumn`);
+                        if(editValue !== null)
+                        {
+                            editValue.textContent = dDate;
+                        } 
+                    }
+
+                    updateToDo(editToDo);
+
+                    if(dialogObject !== null)
+                    {
+                        dialogObject.close();
+                        dialogObject.remove();
+
+                        dialogObject = null;
+                        return;
+                    }
+
+                }
+            }
+        }
+    }
+
+    if(event.target.id.startsWith("project-save-"))
+    {
+        let projId = +(event.target.id.split("-")[2]);
+        let editProject = getProject(projId);
+        if(dialogObject !== null && editProject !== null)
+        {
+            event.stopPropagation();
+            let projectName = document.querySelector('#projectName');
+            if(projectName !== null)
+            {
+                if(projectName.classList.contains("error"))
+                {
+                    projectName.classList.remove("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "";
+                    }
+                }
+
+                if(projectName.value == '' || projectName.value.length === 0)
+                {
+                    // error
+                    projectName.classList.add("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "Please input something in the name.";
+                    }
+                } else {
+                    if(editProject.name !== projectName.value)
+                    {
+                        editProject.name = projectName.value;
+
+                        if(sidebarObject !== null)
+                        {
+                            let projectCaption = document.querySelector(`.projectItem[data-id="${projId}"] .projectItem-text`);
+                            if(projectCaption !== null)
+                            {
+                                projectCaption.textContent = projectName.value;
+                            }
+                        }
+
+                    }
+
+                    updateProject(editProject);
+
+                    if(dialogObject !== null)
+                    {
+                        dialogObject.close();
+                        dialogObject.remove();
+
+                        dialogObject = null;
+                        return;
+                    }
+
+                }
+            }
+        }
+    }
+
+    if(event.target.id === "project-send")
+    {
+        if(dialogObject !== null)
+        {
+            event.stopPropagation();
+            let projectName = document.querySelector('#projectName');
+            if(projectName !== null)
+            {
+                if(projectName.classList.contains("error"))
+                {
+                    projectName.classList.remove("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "";
+                    }
+                }
+
+                if(projectName.value == '' || projectName.value.length === 0)
+                {
+                    // error
+                    projectName.classList.add("error");
+                    let errorInput = document.querySelector(".input-error");
+                    if(errorInput !== null)
+                    {
+                        errorInput.textContent = "Please input something in the name.";
+                    }
+                } else {
+                    let newProject = appendNewProject(projectName.value);
+                    appendProject(newProject);
+
+                    if(sidebarObject !== null)
+                    {
+                        _appendProject(sidebarObject, newProject);
+                    }
+
+                    if(dialogObject !== null)
+                    {
+                        dialogObject.close();
+                        dialogObject.remove();
+
+                        dialogObject = null;
+                        return;
+                    }
+
+                }
+            }
+        }
     }
 
     // class selectors
@@ -331,10 +649,22 @@ const _createSidebar = () => {
         sidebarMenuHolder.appendChild(sidebarMenu);
 
         sidebarObject.appendChild(sidebarMenuHolder);
+        
 
         let projectHeading = document.createElement("div");
         projectHeading.classList.add("project-heading");
         projectHeading.textContent = `My Projects (${getProjects().length})`;
+        
+        let appendProject = document.createElement("div");
+        appendProject.classList.add("append-project");
+
+        let addImage = new Image();
+        addImage.src = AddIcon;
+        addImage.setAttribute("id", "add-project");
+        addImage.addEventListener("click", _clickHandler);
+        appendProject.appendChild(addImage);
+
+        projectHeading.appendChild(appendProject);
         sidebarObject.appendChild(projectHeading);
 
         let hrItem = document.createElement("div");
@@ -343,51 +673,555 @@ const _createSidebar = () => {
         sidebarObject.appendChild(hrItem);
 
         getProjects().forEach((project) => {
-            sidebarMenu = document.createElement("div");
-            sidebarMenu.classList.add("menuItem");
-            sidebarMenu.classList.add("projectItem");
-            sidebarMenu.setAttribute("data-id", project.id);
-            if(currentlySelected === "linkProject-" + project.id)
-            {
-                sidebarMenu.classList.add("selected");
-            }
-            sidebarMenu.setAttribute("id", "linkProject-" + project.id);
-            sidebarMenu.addEventListener("click", _clickHandler);
-
-            let sidebarMenuText = document.createElement("div");
-            sidebarMenuText.textContent = project.name;
-            sidebarMenuText.classList.add("projectItem-text")
-            sidebarMenu.appendChild(sidebarMenuText);
-
-            let sidebarMenuOptions = document.createElement("div");
-            
-            let editImage = new Image();
-            editImage.src = EditIcon;
-            if(currentlySelected === "linkProject-" + project.id)
-            {
-                editImage.src = EditIconWhite;
-            }
-            editImage.addEventListener("click", _clickHandler);
-            editImage.setAttribute("id", "edit-project-" + project.id);
-            sidebarMenuOptions.appendChild(editImage);
-
-            let deleteImage = new Image();
-            deleteImage.src = DeleteIcon;
-            if(currentlySelected === "linkProject-" + project.id)
-            {
-                deleteImage.src = DeleteIconWhite;
-            }
-            deleteImage.addEventListener("click", _clickHandler);
-            deleteImage.setAttribute("id", "delete-project-" + project.id);
-            sidebarMenuOptions.appendChild(deleteImage);
-
-            sidebarMenu.appendChild(sidebarMenuOptions);
-
-            sidebarObject.appendChild(sidebarMenu);
+            _appendProject(sidebarObject, project);
         });
 
         contentBox.appendChild(sidebarObject);
     }
+}
+
+const _appendProject = (sidebarObject, project) => {
+    let sidebarMenu = document.createElement("div");
+    sidebarMenu.classList.add("menuItem");
+    sidebarMenu.classList.add("projectItem");
+    sidebarMenu.setAttribute("data-id", project.id);
+    if(currentlySelected === "linkProject-" + project.id)
+    {
+        sidebarMenu.classList.add("selected");
+    }
+    sidebarMenu.setAttribute("id", "linkProject-" + project.id);
+    sidebarMenu.addEventListener("click", _clickHandler);
+
+    let sidebarMenuText = document.createElement("div");
+    sidebarMenuText.textContent = project.name;
+    sidebarMenuText.classList.add("projectItem-text")
+    sidebarMenu.appendChild(sidebarMenuText);
+
+    let sidebarMenuOptions = document.createElement("div");
+    
+    let editImage = new Image();
+    editImage.src = EditIcon;
+    if(currentlySelected === "linkProject-" + project.id)
+    {
+        editImage.src = EditIconWhite;
+    }
+    editImage.addEventListener("click", _clickHandler);
+    editImage.setAttribute("id", "edit-project-" + project.id);
+    sidebarMenuOptions.appendChild(editImage);
+
+    let deleteImage = new Image();
+    deleteImage.src = DeleteIcon;
+    if(currentlySelected === "linkProject-" + project.id)
+    {
+        deleteImage.src = DeleteIconWhite;
+    }
+    deleteImage.addEventListener("click", _clickHandler);
+    deleteImage.setAttribute("id", "delete-project-" + project.id);
+    sidebarMenuOptions.appendChild(deleteImage);
+
+    sidebarMenu.appendChild(sidebarMenuOptions);
+
+    sidebarObject.appendChild(sidebarMenu);
+}
+
+const _createDialog = (type) => {
+
+    if(dialogObject !== null)
+    {
+        dialogObject.close();
+        dialogObject.remove();
+        dialogObject = null;
+    }
+
+    dialogObject = document.createElement("dialog");
+    dialogObject.setAttribute("id", "dialog-main");
+    dialogObject.addEventListener("click", _clickHandler);
+
+    let dialogContainer = document.createElement("div");
+    dialogContainer.setAttribute("id", "dialog-container");
+
+    let dialogTitle = document.createElement("div");
+    dialogTitle.classList.add("dialog-title");
+    dialogTitle.textContent = type;
+
+    if(type === "add-todo")
+    {
+        dialogTitle.textContent = "Add a new task";
+    }
+
+    if(type === "add-project")
+    {
+        dialogTitle.textContent = "Add a new project";
+    }
+
+    if(type.startsWith("edit-project-"))
+    {
+        dialogTitle.textContent = "Edit project";
+    }
+
+    if(type.startsWith("edit-todo-"))
+    {
+        dialogTitle.textContent = "Edit task";
+    }
+
+    if(type.startsWith("info-todo-"))
+    {
+        dialogTitle.textContent = "Task information";
+    }
+
+    dialogContainer.appendChild(dialogTitle);
+
+    let dialogContent = document.createElement("div");
+    dialogContent.classList.add("dialog-content");
+    
+    if(type === "add-todo")
+    {
+        appendNewToDoForm(dialogContent);        
+    }
+
+    if(type === "add-project")
+    {
+        appendNewProjectForm(dialogContent);
+    }
+
+    if(type.startsWith("edit-project-"))
+    {
+        let projId = +(type.split('-')[2]);
+        let editProject = getProject(projId);
+        if(editProject != null)
+        {
+            editProjectForm(dialogContent, editProject);
+        }
+    }
+
+    if(type.startsWith("edit-todo-"))
+    {
+        let todoId = +(type.split('-')[2]);
+        let editToDo = getToDo(todoId);
+        if(editToDo != null)
+        {
+            editToDoForm(dialogContent, editToDo);
+        }
+    }
+
+    if(type.startsWith("info-todo-"))
+    {
+        let todoId = +(type.split('-')[2]);
+        let editToDo = getToDo(todoId);
+        if(editToDo != null)
+        {
+            infoToDo(dialogContent, editToDo);
+        }
+    }
+
+    dialogContainer.appendChild(dialogContent);
+
+    dialogObject.appendChild(dialogContainer);
+    (document.querySelector("body")).appendChild(dialogObject);
+    dialogObject.showModal();
+
+}
+
+const appendNewToDoForm = (dialogContent) => {
+    let nameLabel = document.createElement("label");
+    nameLabel.setAttribute("for", "todoName");
+    nameLabel.textContent = "Title: ";
+    dialogContent.appendChild(nameLabel);
+
+    let nameInput = document.createElement("input");
+    nameInput.setAttribute("type", "text");
+    nameInput.setAttribute("id", "todoName");
+    nameInput.setAttribute("name", "todo_name");
+    nameInput.setAttribute("maxlength", "32");
+    nameInput.setAttribute("required", "");
+    dialogContent.appendChild(nameInput);
+
+    let errorLabel = document.createElement("div");
+    errorLabel.classList.add("input-error");
+    dialogContent.appendChild(errorLabel);
+
+    let descLabel = document.createElement("label");
+    descLabel.setAttribute("for", "todoDescription");
+    descLabel.textContent = "Description: ";
+    dialogContent.appendChild(descLabel);
+
+    let descInput = document.createElement("textarea");
+    descInput.setAttribute("id", "todoDescription");
+    descInput.setAttribute("name", "todo_description");
+    descInput.setAttribute("rows", "6");
+    dialogContent.appendChild(descInput);
+
+    let dateLabel = document.createElement("label");
+    dateLabel.setAttribute("for", "todoDate");
+    dateLabel.textContent = "Due date: ";
+    dialogContent.appendChild(dateLabel);
+
+    let dateInput = document.createElement("input");
+    dateInput.setAttribute("type", "date");
+    dateInput.setAttribute("id", "todoDate");
+    dateInput.setAttribute("name", "todo_date");
+    dialogContent.appendChild(dateInput);
+
+    let priorityLabel = document.createElement("label");
+    priorityLabel.setAttribute("for", "todoPriority");
+    priorityLabel.textContent = "Priority: ";
+    dialogContent.appendChild(priorityLabel);
+
+    let priorityInput = document.createElement("select");
+    priorityInput.setAttribute("id", "todoPriority");
+    priorityInput.setAttribute("name", "todo_priority");
+
+    let priorityOption = document.createElement("option");
+    priorityOption.setAttribute("value", "low");
+    priorityOption.setAttribute("selected", "");
+    priorityOption.textContent = "Low";
+    priorityInput.appendChild(priorityOption);
+
+    priorityOption = document.createElement("option");
+    priorityOption.setAttribute("value", "medium");
+    priorityOption.textContent = "Medium";
+    priorityInput.appendChild(priorityOption);
+
+    priorityOption = document.createElement("option");
+    priorityOption.setAttribute("value", "high");
+    priorityOption.textContent = "High";
+    priorityInput.appendChild(priorityOption);
+
+    dialogContent.appendChild(priorityInput);
+
+    let projectLabel = document.createElement("label");
+    projectLabel.setAttribute("for", "todoProject");
+    projectLabel.textContent = "Project: ";
+    dialogContent.appendChild(projectLabel);
+
+    let projectInput = document.createElement("select");
+    projectInput.setAttribute("id", "todoProject");
+    projectInput.setAttribute("name", "todo_project");
+
+    let projectOption = document.createElement("option");
+    projectOption.setAttribute("value", "-1");
+    projectOption.setAttribute("selected", "");
+    projectOption.textContent = "None";
+    projectInput.appendChild(projectOption);
+
+    getProjects().forEach((project) => {
+        projectOption = document.createElement("option");
+        projectOption.setAttribute("value", project.id);
+        projectOption.textContent = project.name;
+        projectInput.appendChild(projectOption);
+    });        
+    
+    dialogContent.appendChild(projectInput);
+
+    let projectButtons = document.createElement("div");
+    projectButtons.classList.add("project-buttons");
+
+    let cancelButton = document.createElement("button");
+    cancelButton.classList.add("cancel-button");
+    cancelButton.setAttribute("id", "todo-cancel");
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(cancelButton);
+
+    let sendButton = document.createElement("button");
+    sendButton.classList.add("send-button");
+    sendButton.setAttribute("id", "todo-send");
+    sendButton.textContent = "Add";
+    sendButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(sendButton);
+
+    dialogContent.appendChild(projectButtons);
+}
+
+const editToDoForm = (dialogContent, todo) => {
+    let nameLabel = document.createElement("label");
+    nameLabel.setAttribute("for", "todoName");
+    nameLabel.textContent = "Title: ";
+    dialogContent.appendChild(nameLabel);
+
+    let nameInput = document.createElement("input");
+    nameInput.setAttribute("type", "text");
+    nameInput.setAttribute("id", "todoName");
+    nameInput.setAttribute("name", "todo_name");
+    nameInput.setAttribute("maxlength", "32");
+    nameInput.setAttribute("required", "");
+    nameInput.setAttribute("value", todo.title);
+    dialogContent.appendChild(nameInput);
+
+    let errorLabel = document.createElement("div");
+    errorLabel.classList.add("input-error");
+    dialogContent.appendChild(errorLabel);
+
+    let descLabel = document.createElement("label");
+    descLabel.setAttribute("for", "todoDescription");
+    descLabel.textContent = "Description: ";
+    dialogContent.appendChild(descLabel);
+
+    let descInput = document.createElement("textarea");
+    descInput.setAttribute("id", "todoDescription");
+    descInput.setAttribute("name", "todo_description");
+    descInput.setAttribute("rows", "6");
+    descInput.textContent = todo.description;
+    dialogContent.appendChild(descInput);
+
+    let dateLabel = document.createElement("label");
+    dateLabel.setAttribute("for", "todoDate");
+    dateLabel.textContent = "Due date: ";
+    dialogContent.appendChild(dateLabel);
+
+    let dateInput = document.createElement("input");
+    let dateSplit = todo.dueDate.split("/");
+    dateInput.setAttribute("type", "date");
+    dateInput.setAttribute("id", "todoDate");
+    dateInput.setAttribute("name", "todo_date");
+    dateInput.setAttribute("value", `${dateSplit[2]}-${dateSplit[1]}-${dateSplit[0]}`);
+    dialogContent.appendChild(dateInput);
+
+    let priorityLabel = document.createElement("label");
+    priorityLabel.setAttribute("for", "todoPriority");
+    priorityLabel.textContent = "Priority: ";
+    dialogContent.appendChild(priorityLabel);
+
+    let priorityInput = document.createElement("select");
+    priorityInput.setAttribute("id", "todoPriority");
+    priorityInput.setAttribute("name", "todo_priority");
+
+    let priorityOption = document.createElement("option");
+    priorityOption.setAttribute("value", "low");
+    if(todo.priority.toLowerCase() === "low")
+    {
+        priorityOption.setAttribute("selected", "");
+    } else {
+        priorityOption.removeAttribute("selected");
+    }
+    priorityOption.textContent = "Low";
+    priorityInput.appendChild(priorityOption);
+
+    let priorityOption2 = document.createElement("option");
+    priorityOption2.setAttribute("value", "medium");
+    if(todo.priority.toLowerCase() === "medium")
+    {
+        priorityOption2.setAttribute("selected", "");
+    } else {
+        priorityOption2.removeAttribute("selected");
+    }
+    priorityOption2.textContent = "Medium";
+    priorityInput.appendChild(priorityOption2);
+
+    let priorityOption3 = document.createElement("option");
+    priorityOption3.setAttribute("value", "high");
+    if(todo.priority.toLowerCase() === "high")
+    {
+        priorityOption3.setAttribute("selected", "");
+    } else {
+        priorityOption3.removeAttribute("selected");
+    }
+    priorityOption3.textContent = "High";
+    priorityInput.appendChild(priorityOption3);
+
+    dialogContent.appendChild(priorityInput);
+
+    let projectLabel = document.createElement("label");
+    projectLabel.setAttribute("for", "todoProject");
+    projectLabel.textContent = "Project: ";
+    dialogContent.appendChild(projectLabel);
+
+    let projectInput = document.createElement("select");
+    projectInput.setAttribute("id", "todoProject");
+    projectInput.setAttribute("name", "todo_project");
+
+    let projectOption = document.createElement("option");
+    projectOption.setAttribute("value", "-1");
+    if(+todo.projectId === -1)
+    {
+        priorityOption.setAttribute("selected", "");
+    }
+    projectOption.textContent = "None";
+    projectInput.appendChild(projectOption);
+
+    getProjects().forEach((project) => {
+        let eProjectOption = document.createElement("option");
+        eProjectOption.setAttribute("value", project.id);
+        if(+todo.projectId === +project.id)
+        {
+            eProjectOption.setAttribute("selected", "");
+        }
+        eProjectOption.textContent = project.name;
+        projectInput.appendChild(eProjectOption);
+    });        
+    
+    dialogContent.appendChild(projectInput);
+
+    let projectButtons = document.createElement("div");
+    projectButtons.classList.add("project-buttons");
+
+    let cancelButton = document.createElement("button");
+    cancelButton.classList.add("cancel-button");
+    cancelButton.setAttribute("id", "todo-cancel");
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(cancelButton);
+
+    let sendButton = document.createElement("button");
+    sendButton.classList.add("send-button");
+    sendButton.setAttribute("id", "todo-save-" + todo.id);
+    sendButton.textContent = "Save";
+    sendButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(sendButton);
+
+    dialogContent.appendChild(projectButtons);
+}
+
+const infoToDo = (dialogContent, todo) => {
+    let nameLabel = document.createElement("label");
+    nameLabel.setAttribute("for", "todoName");
+    nameLabel.textContent = "Title: ";
+    nameLabel.style['font-weight'] = 'bold';
+    dialogContent.appendChild(nameLabel);
+
+    let nameInput = document.createElement("div");
+    nameInput.textContent = todo.title;
+    dialogContent.appendChild(nameInput);
+
+    let descLabel = document.createElement("label");
+    descLabel.setAttribute("for", "todoDescription");
+    descLabel.textContent = "Description: ";
+    descLabel.style['font-weight'] = 'bold';
+    dialogContent.appendChild(descLabel);
+
+    let descInput = document.createElement("div");
+    descInput.textContent = todo.description;
+    dialogContent.appendChild(descInput);
+
+    let dateLabel = document.createElement("label");
+    dateLabel.setAttribute("for", "todoDate");
+    dateLabel.textContent = "Due date: ";
+    dateLabel.style['font-weight'] = 'bold';
+    dialogContent.appendChild(dateLabel);
+
+    let dateInput = document.createElement("div");
+    let dateSplit = todo.dueDate.split("/");
+    dateInput.textContent =  `${dateSplit[2]}-${dateSplit[1]}-${dateSplit[0]}`;
+    dialogContent.appendChild(dateInput);
+
+    let priorityLabel = document.createElement("label");
+    priorityLabel.setAttribute("for", "todoPriority");
+    priorityLabel.textContent = "Priority: ";
+    priorityLabel.style['font-weight'] = 'bold';
+    dialogContent.appendChild(priorityLabel);
+
+    let priorityInput = document.createElement("div");
+    priorityInput.textContent = todo.priority;
+    dialogContent.appendChild(priorityInput);
+
+    let projectLabel = document.createElement("label");
+    projectLabel.setAttribute("for", "todoProject");
+    projectLabel.textContent = "Project: ";
+    projectLabel.style['font-weight'] = 'bold';
+    dialogContent.appendChild(projectLabel);
+
+    let projectInput = document.createElement("div");
+    if(+todo.projectId === -1)
+    {
+        projectInput.textContent = "None";
+    } else {
+        let currentProj = getProject(+todo.projectId);
+        if(currentProj !== null)
+        {
+            projectInput.textContent = currentProj.name;
+        } else {
+            projectInput.textContent = "Unknown";
+        }
+    }
+    dialogContent.appendChild(projectInput);
+
+    let projectButtons = document.createElement("div");
+    projectButtons.classList.add("project-buttons");
+
+    let cancelButton = document.createElement("button");
+    cancelButton.classList.add("cancel-button");
+    cancelButton.setAttribute("id", "todo-cancel");
+    cancelButton.textContent = "Exit";
+    cancelButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(cancelButton);
+    dialogContent.appendChild(projectButtons);
+}
+
+const appendNewProjectForm = (dialogContent) => {
+    let nameLabel = document.createElement("label");
+    nameLabel.setAttribute("for", "projectName");
+    nameLabel.textContent = "Name: ";
+    dialogContent.appendChild(nameLabel);
+
+    let nameInput = document.createElement("input");
+    nameInput.setAttribute("type", "text");
+    nameInput.setAttribute("id", "projectName");
+    nameInput.setAttribute("name", "project_name");
+    nameInput.setAttribute("maxlength", "32");
+    nameInput.setAttribute("required", "");
+    dialogContent.appendChild(nameInput);
+
+    let errorLabel = document.createElement("div");
+    errorLabel.classList.add("input-error");
+    dialogContent.appendChild(errorLabel);
+
+    let projectButtons = document.createElement("div");
+    projectButtons.classList.add("project-buttons");
+
+    let cancelButton = document.createElement("button");
+    cancelButton.classList.add("cancel-button");
+    cancelButton.setAttribute("id", "project-cancel");
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(cancelButton);
+
+    let sendButton = document.createElement("button");
+    sendButton.classList.add("send-button");
+    sendButton.setAttribute("id", "project-send");
+    sendButton.textContent = "Add";
+    sendButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(sendButton);
+
+    dialogContent.appendChild(projectButtons);
+}
+
+const editProjectForm = (dialogContent, project) => {
+    let nameLabel = document.createElement("label");
+    nameLabel.setAttribute("for", "projectName");
+    nameLabel.textContent = "Name: ";
+    dialogContent.appendChild(nameLabel);
+
+    let nameInput = document.createElement("input");
+    nameInput.setAttribute("type", "text");
+    nameInput.setAttribute("id", "projectName");
+    nameInput.setAttribute("name", "project_name");
+    nameInput.setAttribute("maxlength", "32");
+    nameInput.setAttribute("required", "");
+    nameInput.value = project.name;
+    dialogContent.appendChild(nameInput);
+
+    let errorLabel = document.createElement("div");
+    errorLabel.classList.add("input-error");
+    dialogContent.appendChild(errorLabel);
+
+    let projectButtons = document.createElement("div");
+    projectButtons.classList.add("project-buttons");
+
+    let cancelButton = document.createElement("button");
+    cancelButton.classList.add("cancel-button");
+    cancelButton.setAttribute("id", "project-cancel");
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(cancelButton);
+
+    let sendButton = document.createElement("button");
+    sendButton.classList.add("send-button");
+    sendButton.setAttribute("id", "project-save-" + project.id);
+    sendButton.textContent = "Save";
+    sendButton.addEventListener("click", _clickHandler);
+    projectButtons.appendChild(sendButton);
+
+    dialogContent.appendChild(projectButtons);
 }
 
 

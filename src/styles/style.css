@@ -152,6 +152,19 @@ body {
     padding-left: 1rem;
 }
 
+.sidebarMenu .append-project {
+    float: right;
+    padding-right: 1rem;
+}
+
+.sidebarMenu .append-project img {
+    transition: all 0.2s ease-in-out;
+}
+
+.sidebarMenu .append-project img:hover {
+    transform: scale(1.1);
+}
+
 .sidebarMenu .hr-item
 {
     margin-bottom: 0.5rem;
@@ -213,6 +226,19 @@ body {
 .main-content table caption {
     font-size: 2.5rem;
     padding: 0.6rem 1rem;
+}
+
+.main-content .append-todo {
+    float: right;
+}
+
+.main-content .append-todo img {
+    transform: scale(0.9);
+    transition: all 0.4s ease-in-out;
+}
+
+.main-content .append-todo img:hover {
+    transform: scale(1);
 }
 
 .main-content table th.nameColumn, .main-content table td.nameColumn {
@@ -315,4 +341,98 @@ body {
     padding-bottom: 0.4rem;
     padding-top: 0.4rem;
     color: black;
+}
+
+#dialog-main {
+    background-color: white;
+    padding: 0;
+    border-radius: 0.4rem;
+    animation: showUp 0.8s ease;
+    box-shadow: 0.1rem 0.3em 0.6rem rgb(0, 0, 0, 0.2);
+    outline: none;
+    border: none;
+}
+
+#dialog-main .dialog-title {
+    background-color: #132544;
+    color: white;
+    font-size: 1.4rem;
+    margin: 0;
+    padding: 0.6rem 1rem;
+}
+
+#dialog-main .dialog-content {
+    padding: 1rem;
+    padding-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    width: 45ch;
+}
+
+#dialog-main .dialog-content label {
+    padding-top: 0.7rem;
+}
+
+#dialog-main .dialog-content input, #dialog-main .dialog-content select, 
+#dialog-main .dialog-content textarea {
+    padding: 0.35rem;
+    border: 1px solid rgb(0, 0, 0, 0.4);
+    border-radius: 0.5rem;
+}
+
+#dialog-main .dialog-content input:focus, #dialog-main .dialog-content select:focus,
+#dialog-main .dialog-content textarea:focus {
+    outline: none;
+    border: 1px solid #0b1933;
+}
+
+#dialog-main .dialog-content input.error {
+    border: 1px solid #500000;
+}
+
+#dialog-main .dialog-content .input-error {
+    color: #500000;
+}
+
+#dialog-main .project-buttons {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    padding-bottom: 0.4rem;
+}
+
+#dialog-main .project-buttons button {
+    padding: 0.35rem 0.5rem;
+    margin-left: 0.75rem;
+    border: 0;
+    border-radius: 0.4rem;
+    font-size: 1.3rem;
+    box-shadow: 0.1rem 0.1em 0.3rem rgb(0, 0, 0, 0.2);
+    transition: all 0.4s ease-in-out;
+}
+
+#dialog-main .project-buttons button:hover {
+    transform: scale(1.1);
+}
+
+#dialog-main .project-buttons .send-button {
+    background-color: #102244;
+    color: white;
+}
+
+#dialog-main .project-buttons .send-button:hover {
+    background-color: #0a1630;
+}
+
+#dialog-main .project-buttons .send-button:active {
+    background-color: #050e1f;
+}
+
+#dialog-main .project-buttons .cancel-button:hover {
+    background-color: #dfdfdf;
+}
+
+#dialog-main .project-buttons .cancel-button:active {
+    background-color: #cecece;
 }

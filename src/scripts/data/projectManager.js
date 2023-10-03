@@ -8,6 +8,13 @@ const getProjects = () => _projects;
 const appendNewProject = (name) => {
     let proj = new Project(getNextProjectId(), name);
     _projects.push(proj);
+    return proj;
+}
+
+const appendProjectFromData = (id, name) => {
+    let proj = new Project(id, name);
+    _projects.push(proj);
+    return proj;
 }
 
 const deleteProject = (id) => {
@@ -36,4 +43,4 @@ const getProject = (id) => {
 
 }
 
-export { getProjects, appendNewProject, getProject, deleteProject }
+export { getProjects, appendNewProject, getProject, deleteProject, appendProjectFromData }

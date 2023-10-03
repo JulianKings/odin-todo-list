@@ -5,10 +5,20 @@ const _toDos = [];
 
 const getToDos = () => _toDos;
 
-const appendNewToDo = (name, description, dueDate, priority) => {
+const appendNewToDo = (name, description, dueDate, priority, project) => {
     let todo = new ToDo(getNextTodoID(), name, description, 
-    dueDate, priority, false, false, -1);
+    dueDate, priority, false, false, project);
     _toDos.push(todo);
+
+    return todo;
+}
+
+const appendToDoFromData = (id, name, description, dueDate, priority, favorite, completed, project) => {
+    let todo = new ToDo(id, name, description, 
+    dueDate, priority, favorite, completed, project);
+    _toDos.push(todo);
+
+    return todo;
 }
 
 const deleteToDo = (id) => {
@@ -53,4 +63,4 @@ const alternateToDoFavorite = (id) => {
     }
 }
 
-export { getToDo, getToDos, appendNewToDo, alternateToDoCompleted, alternateToDoFavorite, deleteToDo }
+export { getToDo, getToDos, appendNewToDo, alternateToDoCompleted, alternateToDoFavorite, deleteToDo, appendToDoFromData }
